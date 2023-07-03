@@ -1,0 +1,265 @@
+<head>
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js" integrity="sha256-oP6HI9z1XaZNBrJURtCoUT5SUnxFr8s3BzRl+cbzUq8=" crossorigin="anonymous"></script>
+
+</head>
+
+<?php
+include('config.php');
+?>
+<div style="display: inline-block; margin-right: 50px">
+    <form action="" method="" id="salvaresult">
+
+        <input type="text" placeholder="SKU" id="sku" name="sku" style="max-width:400px" required autofocus onkeypress="return validate(event);" /><br>
+        <!-- <input type="number" placeholder="Quantità Negozio" id="" style="max-width:400px" readonly /><br>
+        <input type="number" placeholder="Quantità Magazzino" id="" style="max-width:400px" readonly /><br>
+        -->
+        <input type="number" placeholder="Togli Negozio" id="qty_add" style="max-width:400px" /><br>
+        <input type="submit" value="Salva" id="salvadat" />
+        <input type="button" value="Ripristina" name="resetcart" id="resetcart" onClick="resetnput();" />
+        <input type="button" value="Sincronizza" id="sync" onClick="refreshpage();" />
+    </form>
+</div>
+
+<br>
+<?php $strnumprod = numprodotti($conn);
+echo '<div id="numprod">' . $strnumprod . '</div>';
+
+
+function numprodotti($conn)
+{
+    $notice = '';
+    if ($conn->connect_error) {
+
+        $connect = false;
+        die("Connection failed: " . $conn->connect_error);
+    } else {
+
+        $sql0 = "SELECT count(sku) as sku from export;";
+
+
+        $result = mysqli_query($conn, $sql0);
+        $row = mysqli_fetch_array($result, MYSQLI_ASSOC);
+        $nbrresult = $row['sku'];
+        //$nbrresult=count($row);
+        $strss = 'articoli nel carrello';
+        if ($nbrresult == 1) {
+            $strss = 'articolo nel carrello';
+        }
+        if ($nbrresult == '') {
+            $nbrresult = 0;
+        }
+
+        $url = '<a href="cartNeg.php"> --> Apri</a>';
+        $notice = '  ' . $nbrresult . '  ' . $strss . ' ' . $url;
+    }
+    return $notice;
+}
+
+?>
+<script>
+    const input = document.getElementById("sku");
+    input.addEventListener('keydown', updateValue);
+
+    $('#salvadat').on('click', addToCart);
+
+    function updateValue(e) {
+
+        //ENTER key is pressed (BARCODE Scanner)
+        if (event.which === 13) {
+            var skuText = e.target.value;
+            if (skuText != '') {
+
+                const arr = [skuText];
+
+                const jsonString = JSON.stringify(arr);
+
+                console.log("jsonStrin=:" + jsonString);
+
+
+                $.ajax({
+                    url: 'getProd.php',
+                    type: 'post',
+                    data: {
+                        skuText: jsonString
+                    },
+                    success: function(response) {
+                        console.log(response);
+                        const obj = JSON.parse(response);
+                        console.log(obj);
+                        var sku = obj.sku;
+                        //var qty = obj.qty;
+                        var qty = parseInt($('#qty_add').val()) || 0;
+                        var qty_mag = obj.qty_mag;
+                        var name = obj.name;
+                        var price = obj.price;
+                        if (sku == '') {
+                            alert("Codice non presente");
+                            document.getElementById('sku').value = '';
+                            resetnput();
+                        } else {
+                            document.getElementById('sku').value = skuText;
+                            //console.log(qty);
+                            $('#qty_add').val(qty + 1);
+                            //$('#qty_mag').val(qty_mag);
+                            //$('#posizione').text('Il prodotto è presente in: ' + obj.pos);
+
+                            $('#sku').focus();
+                            $('#sku').select();
+                            if (obj.pos == 'export') {
+                                $('#posizione').text('Il prodotto è già presente nel carrello e verrà aggiornato');
+
+                            } else if (obj.pos == 'products') {
+                                $('#posizione').text('Il prodotto non esiste nel carrello e verrà inserito');
+                            }
+
+                        }
+
+
+                    }
+                });
+            }
+
+
+
+        }
+
+    }
+
+    function validate(evt) {
+        var theEvent = evt || window.event;
+
+        // Handle paste
+        if (theEvent.type === 'paste') {
+            key = event.clipboardData.getData('text/plain');
+        } else {
+            // Handle key press
+            var key = theEvent.keyCode || theEvent.which;
+            key = String.fromCharCode(key);
+        }
+        var regex = /[0-9]|\./;
+        if (!regex.test(key)) {
+            theEvent.returnValue = false;
+            if (theEvent.preventDefault) theEvent.preventDefault();
+        }
+    }
+
+    function addToCart(e) {
+        e.preventDefault();
+        let sku = $('#sku').val();
+        let qty = $('#qty_add').val();
+        //let qty_mag = $('#qty_add_mag').val();
+        //console.log(qty + "da aggiun");
+        if (sku != '') {
+            if (qty > 0) {
+                const data = [sku, qty];
+                const json = JSON.stringify(data);
+                console.log(json);
+
+                $.ajax({
+                    url: 'addCartNeg.php',
+                    type: 'post',
+                    data: {
+                        data: json
+                    },
+                    success: (response) => {
+                        console.log(response);
+                        const obj = JSON.parse(response);
+                        let status = obj.response;
+                        if (status == 'update') {
+                            resetnput();
+                            $('#posizione').text("Il prodotto nel carrello è stato aggiornato");
+                        } else if (status == 'insert') {
+                            resetnput();
+                            $('#posizione').text("Il prodotto è stato aggiunto nel carrello");
+                        } else {
+                            resetnput();
+                            $('#posizione').text("Qualcosa è andato storto");
+                        }
+                        refreshpage();
+                    }
+                });
+            } else {
+                alert("Qty non può essere vuoto per entrambi");
+            }
+
+        } else {
+            alert("SKU o Qty non deve essere vuoto");
+            resetnput();
+        }
+
+    }
+
+    function resetnput() {
+        document.getElementById('sku').value = '';
+        $('#qty').val('');
+        $('#qty_mag').val('');
+        $('#posizione').text('');
+        $('#qty_add').val('');
+        $('#qty_add_mag').val('');
+        $('#info_sku').val('');
+        $('#info_name').val('');
+        $('#info_price').val('');
+        $('#info_prod').hide();
+        document.getElementById("sku").focus();
+
+    }
+
+    function refreshpage() {
+        window.location.href = 'scanNeg.php';
+        document.getElementById("sku").focus();
+
+    }
+</script>
+<?php
+/*
+if (isset($_GET['salvacart'])) {
+
+    $sku = $_GET['result'];
+    
+    $cart = $_COOKIE['user'];
+
+    if ($sku != '' && $sku != '0000000000000') {
+        
+        $sql = "SELECT * FROM export WHERE sku=$sku;";
+        $result = $conn->query($sql);
+
+        if ($result->num_rows > 0) {
+            //il prodotto è gia stato inserito nel cart
+            $row = $result->fetch_array();
+            $qty = $row['qty'];
+            $sql = "UPDATE export SET qty=$qty+1 WHERE sku=$sku;";
+            if ($conn->query($sql)) {
+                echo "carrello aggiornato";
+            } else {
+                echo "operazione update non riuscita";
+            }
+
+
+        } else {
+            //il prodotto non è nel cart
+            $sql = "SELECT * FROM products WHERE sku=$sku;";
+            $result = $conn->query($sql);
+            if ($result->num_rows > 0) {
+                //esiste nella tabella products
+                $row = $result->fetch_array();
+                $id = $row['id'];
+                $name = $row['name'];
+                $price = $row['price'];
+                $sku = $row['sku'];
+                $qty = 1;
+
+                $sql = "INSERT INTO export VALUES (DEFAULT, '$id', '$name', '$price', '$sku', '$qty');";
+                if ($conn->query($sql)) {
+                    echo "inserimento nel cart avvenuto";
+                } else {
+                    echo "insert non avvenuto: " . $conn->error;
+                }
+
+            } else {
+                echo "il prodotto non esiste nella tabella products";
+            }
+        }
+    }
+}
+*/
+?>

@@ -1,0 +1,29 @@
+{
+    "users": [
+        {
+            "username": "Dylan",
+            "password": "Capslockshift1",
+            "role": "admin"
+        },
+        {
+            "username": "Francesco",
+            "password": "adeleleo10",
+            "role": "operatore_negozio"
+        },
+        {
+            "username": "Alex",
+            "password": "password_alex",
+            "role": "operatore_magazzino"
+        },
+        {
+            "username": "Amar",
+            "password": "password_amar",
+            "role": "operatore_magazzino"
+        },
+        {
+            "username": "iseppe",
+            "password": "LambdaExo12",
+            "role": "admin"
+        }
+    ]
+}
